@@ -35,6 +35,22 @@ The project is intended as a shared memory layer for systems that need to reason
 
 It can be used independently or as a backing store for larger systems.
 
+## Interpretations and Current Understanding
+
+The system supports multiple interpretations of the same episodes or artifacts.
+
+- Interpretations describe observations or explanations.
+- Multiple interpretations may coexist, including conflicting ones.
+- Relations such as `CONTRADICTS`, `REFINES`, or `SUPPORTS` link interpretations explicitly.
+
+To represent the currently accepted interpretation, the system uses `SELECTS` relations.
+
+- A `SELECTS` relation links a selection episode to exactly one interpretation.
+- The selection must be backed by an `ABOUT` relation covering the same targets.
+- When a selection changes, the newer selection supersedes the old one using `SUPERSEDES`.
+
+This allows the graph to represent how understanding changes over time without losing history.
+
 ## Status
 
 The project is in an early exploratory stage.
