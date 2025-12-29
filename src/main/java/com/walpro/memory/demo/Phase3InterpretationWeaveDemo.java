@@ -2,9 +2,9 @@ package com.walpro.memory.demo;
 
 import com.walpro.memory.graph.GraphQuery;
 import com.walpro.memory.graph.GraphStore;
-import com.walpro.memory.graph.GraphValidation;
 import com.walpro.memory.graph.InMemoryGraphStore;
 import com.walpro.memory.graph.PathExplanation;
+import com.walpro.memory.ingest.GraphWriter;
 import com.walpro.memory.model.Artifact;
 import com.walpro.memory.model.ElementKind;
 import com.walpro.memory.model.ElementRef;
@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -36,6 +35,7 @@ public final class Phase3InterpretationWeaveDemo {
 
     public static void main(String[] args) {
         InMemoryGraphStore store = new InMemoryGraphStore();
+        GraphWriter w = new GraphWriter(store);
 
         Instant now = Instant.now();
         String traceA = "phase3-epA-" + now;
@@ -47,129 +47,66 @@ public final class Phase3InterpretationWeaveDemo {
         String traceCtr = "phase3-ctr-" + now;
         String traceRef = "phase3-ref-" + now;
 
-        Episode epA = new Episode(id("ep"), now, now, traceA);
-        Episode epB = new Episode(id("ep"), now, now, traceB);
-        Episode selectionEp = new Episode(id("ep"), now, now, traceSel);
-        Episode selectionEp2 = new Episode(id("ep"), now, now, traceSel2);
+        Episode epA = w.episode(traceA, now, now);
+        Episode epB = w.episode(traceB, now, now);
+        Episode selectionEp = w.episode(traceSel, now, now);
+        Episode selectionEp2 = w.episode(traceSel2, now, now);
 
         // Two artifacts that share a "schema hint" but differ by content hash.
-        Artifact a1 = new Artifact(id("art"), "RESULT_JSON", "runs/epA/result.json#sha=AAA", traceA);
-        Artifact a2 = new Artifact(id("art"), "RESULT_JSON", "runs/epB/result.json#sha=BBB", traceB);
+        Artifact a1 = w.artifact(traceA, "RESULT_JSON", "runs/epA/result.json#sha=AAA");
+        Artifact a2 = w.artifact(traceB, "RESULT_JSON", "runs/epB/result.json#sha=BBB");
 
         // Interpretations (the connective tissue)
-        Interpretation hyp = new Interpretation(
-                id("int"),
-                "hypothesis",
-                "Hypothesis: both results are the same dataset version (same schema token).",
-                0.60,
-                traceHyp
-        );
-
-        Interpretation ctr = new Interpretation(
-                id("int"),
-                "counter",
-                "Counter: content hashes differ; likely not the same dataset instance.",
-                0.70,
-                traceCtr
-        );
-
-        Interpretation ref = new Interpretation(
-                id("int"),
-                "refinement",
-                "Refinement: same schema, different payload; treat as comparable but not identical.",
-                0.80,
-                traceRef
-        );
-
-        store.putEpisode(epA);
-        store.putEpisode(epB);
-        store.putEpisode(selectionEp);
-        store.putEpisode(selectionEp2);
-        store.putArtifact(a1);
-        store.putArtifact(a2);
-        store.putInterpretation(hyp);
-        store.putInterpretation(ctr);
-        store.putInterpretation(ref);
+        Interpretation hyp = w.interpretation(traceHyp, "hypothesis", "Hypothesis: both results are the same dataset version (same schema token).", 0.60);
+        Interpretation ctr = w.interpretation(traceCtr, "counter", "Counter: content hashes differ; likely not the same dataset instance.", 0.70);
+        Interpretation ref = w.interpretation(traceRef, "refinement", "Refinement: same schema, different payload; treat as comparable but not identical.", 0.80);
 
         // Episode -> Artifact linkage (just structural)
-        store.putRelation(rel("HAS_ARTIFACT", traceA, ElementRef.episode(epA.id()), ElementRef.artifact(a1.id())));
-        store.putRelation(rel("HAS_ARTIFACT", traceB, ElementRef.episode(epB.id()), ElementRef.artifact(a2.id())));
+        w.relation(traceA, "HAS_ARTIFACT", List.of(ElementRef.episode(epA.id()), ElementRef.artifact(a1.id())));
+        w.relation(traceB, "HAS_ARTIFACT", List.of(ElementRef.episode(epB.id()), ElementRef.artifact(a2.id())));
 
         // Interpretation -> Artifact (ABOUT links)
-        store.putRelation(Relation.of(
-                id("rel"),
-                "ABOUT",
-                traceHyp,
+        w.relation(traceHyp, "ABOUT",
                 List.of(ElementRef.interpretation(hyp.id()), ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())),
-                Map.of("basis", "schemaToken=RESULT_JSON")
-        ));
-
-        store.putRelation(Relation.of(
-                id("rel"),
-                "ABOUT",
-                traceCtr,
+                Map.of("basis", "schemaToken=RESULT_JSON"));
+        w.relation(traceCtr, "ABOUT",
                 List.of(ElementRef.interpretation(ctr.id()), ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())),
-                Map.of("basis", "sha differs", "lhsSha", "AAA", "rhsSha", "BBB")
-        ));
-
-        store.putRelation(Relation.of(
-                id("rel"),
-                "ABOUT",
-                traceRef,
+                Map.of("basis", "sha differs", "lhsSha", "AAA", "rhsSha", "BBB"));
+        w.relation(traceRef, "ABOUT",
                 List.of(ElementRef.interpretation(ref.id()), ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())),
-                Map.of("basis", "same kind; comparable fields; payload differs")
-        ));
+                Map.of("basis", "same kind; comparable fields; payload differs"));
 
-        // Interpretation -> Interpretation (weaving meaning across time)
-        store.putRelation(Relation.of(
-                id("rel"),
-                "CONTRADICTS",
-                traceCtr,
+        // Debate relations: Interpretation -> Interpretation (weaving meaning across time)
+        w.relation(traceCtr, "CONTRADICTS",
                 List.of(ElementRef.interpretation(ctr.id()), ElementRef.interpretation(hyp.id())),
-                Map.of("scope", "identity claim", "strength", 0.8)
-        ));
-
-        store.putRelation(Relation.of(
-                id("rel"),
-                "REFINES",
-                traceRef,
+                Map.of("scope", "identity claim", "strength", 0.8));
+        w.relation(traceRef, "REFINES",
                 List.of(ElementRef.interpretation(ref.id()), ElementRef.interpretation(hyp.id())),
-                Map.of("scope", "downgrade identity->comparability", "strength", 0.7)
-        ));
-
-        store.putRelation(Relation.of(
-                id("rel"),
-                "SUPPORTS",
-                traceRef,
+                Map.of("scope", "downgrade identity->comparability", "strength", 0.7));
+        w.relation(traceRef, "SUPPORTS",
                 List.of(ElementRef.interpretation(ref.id()), ElementRef.interpretation(ctr.id())),
-                Map.of("scope", "not identical", "strength", 0.6)
-        ));
+                Map.of("scope", "not identical", "strength", 0.6));
 
         // SELECTS relation (selection episode chooses the current interpretation for a topic)
-        Relation select1 = Relation.of(
-                id("rel"),
-                "SELECTS",
+        Relation select1 = w.relation(
                 traceSel,
+                "SELECTS",
                 List.of(
                         ElementRef.episode(selectionEp.id()),
                         ElementRef.interpretation(ref.id()),
                         ElementRef.artifact(a1.id()),
                         ElementRef.artifact(a2.id())
                 ),
-                Map.of(
-                        "topic", "identity",
+                Map.of("topic", "identity",
                         "reason", "schema matches but payload differs; treat as comparable, not identical",
                         "confidence", 0.80,
-                        "selector", "demo"
-                )
+                        "selector", "demo")
         );
-        store.putRelation(select1);
 
         // second selection chooses "ctr" (counter) as current, for demonstration
-        Relation select2 = Relation.of(
-                id("rel"),
-                "SELECTS",
+        Relation select2 = w.relation(
                 traceSel2,
+                "SELECTS",
                 List.of(
                         ElementRef.episode(selectionEp2.id()),
                         ElementRef.interpretation(ctr.id()),
@@ -183,20 +120,17 @@ public final class Phase3InterpretationWeaveDemo {
                         "selector", "demo"
                 )
         );
-        store.putRelation(select2);
 
         // SUPERSEDES: select2 supersedes select1 (new, old)
-        Relation supersedes = Relation.of(
-                id("rel"),
-                "SUPERSEDES",
+        w.relation(
                 traceSel2,
+                "SUPERSEDES",
                 List.of(
                         ElementRef.relation(select2.id()),
                         ElementRef.relation(select1.id())
                 ),
                 Map.of("topic", "identity")
         );
-        store.putRelation(supersedes);
 
         GraphQuery q = store.query();
 
@@ -211,7 +145,7 @@ public final class Phase3InterpretationWeaveDemo {
         // (If your query supports excluding types, you can exclude SAME_AS/SIMILAR_TO, but this works even without them.)
         PathExplanation meaningTrail = q.explainPathBetween(left, right, 6, preferTypes("ABOUT", "REFINES", "CONTRADICTS", "SUPPORTS", "HAS_ARTIFACT"));
 
-        System.out.println("Explain path preferring meaning relations (ABOUT / REFINE / CONTRADICT / SUPPORT):");
+        System.out.println("Explain path preferring meaning relations (ABOUT / REFINE / CONTRADICT / SUPPORT / HAS_ARTIFACT):");
         printExplanation(meaningTrail);
 
         System.out.println();
@@ -222,45 +156,57 @@ public final class Phase3InterpretationWeaveDemo {
 
         System.out.println();
         System.out.println("Interpretations that mention BOTH artifacts (via ABOUT):");
-        q.relationsBetween(ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())).stream()
+
+        q.relationsBetween(left, right).stream()
                 .filter(r -> "ABOUT".equals(r.relationType()))
-                .forEach(r -> System.out.println("  - " + r.id() + " trace=" + r.trace() + " meta=" + r.meta()));
+                .forEach(r -> {
+                    // find the interpretation linked by this ABOUT relation
+                    ElementRef interpRef = r.links().stream()
+                            .filter(er -> er.kind() == ElementKind.INTERPRETATION)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (interpRef == null) {
+                        System.out.println("  - " + r.id()
+                                + " trace=" + r.trace()
+                                + " meta=" + r.meta()
+                                + " (no interpretation?)");
+                        return;
+                    }
+
+                    store.getInterpretation(interpRef.id()).ifPresentOrElse(i -> {
+                        System.out.println("  - " + interpRef.id()
+                                + " [" + i.type() + "] "
+                                + i.summary()
+                                + " (conf=" + i.confidence() + ")"
+                                + " | rel=" + r.id()
+                                + " meta=" + r.meta());
+                    }, () -> {
+                        System.out.println("  - " + interpRef.id()
+                                + " (interpretation missing)"
+                                + " | rel=" + r.id()
+                                + " meta=" + r.meta());
+                    });
+                });
 
         System.out.println();
-        System.out.println("Debate trail between interpretations (no ABOUT needed):");
+        System.out.println("Explain path preferring interpretation debate (CONTRADICTS / REFINES / SUPPORTS), excluding ABOUT / SELECTS / SUPERSEDES:");
 
-        var aboutRels = q.relationsBetween(left, right).stream()
-                .filter(r -> "ABOUT".equals(r.relationType()))
-                .toList();
+        var debatePref = Comparator.<String>comparingInt(t -> switch (t) {
+            case "CONTRADICTS" -> 0;
+            case "REFINES" -> 1;
+            case "SUPPORTS" -> 2;
+            default -> 9;
+        });
 
-        var mentionedInterpretations = aboutRels.stream()
-                .flatMap(r -> r.links().stream())
-                .filter(er -> er.kind().name().equals("INTERPRETATION"))
-                .distinct()
-                .toList();
-
-        // Pick two, just for demonstration (e.g., hypothesis vs counter)
-        if (mentionedInterpretations.size() >= 2) {
-            ElementRef i1 = mentionedInterpretations.get(0);
-            ElementRef i2 = mentionedInterpretations.get(1);
-
-            PathExplanation debate = q.explainPathBetween(i1, i2, 6, preferTypes("CONTRADICTS", "REFINES", "SUPPORTS", "ABOUT"));
-            printExplanation(debate);
-        } else {
-            System.out.println("  (not enough interpretations found)");
-        }
-
-
-        System.out.println();
-        System.out.println("Explain path preferring interpretation debate (CONTRADICTS / REFINES / SUPPORTS), excluding ABOUT:");
-        PathExplanation debateTrail = q.explainPathBetweenExcludingTypes(
-                left,
-                right,
-                10,
-                Set.of("ABOUT"), // force it to go via interpretation-to-interpretation links
-                preferTypes("REFINES", "CONTRADICTS", "SUPPORTS", "HAS_ARTIFACT")
+        PathExplanation debate = store.query().explainPathBetweenExcludingTypes(
+                ElementRef.interpretation(ctr.id()),
+                ElementRef.interpretation(ref.id()),
+                6,
+                Set.of("ABOUT", "SELECTS", "SUPERSEDES"),
+                debatePref
         );
-        printExplanation(debateTrail);
+        printExplanation(debate);
 
         System.out.println();
         System.out.println("Selection (SELECTS) for these two artifacts:");
@@ -360,18 +306,7 @@ public final class Phase3InterpretationWeaveDemo {
             printSelectionChain(store, current);
         }
 
-        var problems = GraphValidation.validateAll(store);
-        if (!problems.isEmpty()) {
-            throw new IllegalStateException(String.join("\n", problems));
-        }
-    }
-
-    private static Relation rel(String type, String trace, ElementRef a, ElementRef b) {
-        return Relation.of(id("rel"), type, trace, List.of(a, b));
-    }
-
-    private static String id(String prefix) {
-        return prefix + "-" + UUID.randomUUID();
+        w.validateAllOrThrow();
     }
 
     private static void printExplanation(PathExplanation explanation) {
@@ -383,11 +318,22 @@ public final class Phase3InterpretationWeaveDemo {
         var nodes = explanation.nodes();
         var hops = explanation.hops();
 
+        String lastHopId = null;
+
         for (int i = 0; i < nodes.size(); i++) {
             var node = nodes.get(i);
+
+            // If we just printed a hop whose id equals this node id (relation-node “enter/exit”),
+            // skip printing the relation node itself to avoid the duplicated-looking output.
+            if (node.id().equals(lastHopId)) {
+                continue;
+            }
+
             System.out.print("  " + node.kind() + ":" + node.id());
+
             if (i < hops.size()) {
                 var hop = hops.get(i);
+                lastHopId = hop.id();
                 System.out.print(" --" + hop.relationType() + "@" + hop.id()
                         + " trace=" + hop.trace()
                         + " meta=" + hop.meta()

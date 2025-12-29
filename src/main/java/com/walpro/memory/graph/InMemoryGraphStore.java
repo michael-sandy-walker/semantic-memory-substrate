@@ -164,6 +164,17 @@ public class InMemoryGraphStore implements GraphStore {
             }
 
             @Override
+            public List<Artifact> findArtifactsByReference(String kind, String reference) {
+                if (kind == null || kind.isBlank()) return List.of();
+                if (reference == null || reference.isBlank()) return List.of();
+
+                return artifacts.values().stream()
+                        .filter(a -> kind.equals(a.kind()))
+                        .filter(a -> reference.equals(a.reference()))
+                        .toList();
+            }
+
+            @Override
             public List<ElementRef> pathBetween(ElementRef a, ElementRef b, int maxHops) {
                 return explainPathBetween(a,b,maxHops).nodes();
             }

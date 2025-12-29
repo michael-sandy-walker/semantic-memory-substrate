@@ -2,6 +2,7 @@ package com.walpro.memory.demo;
 
 import com.walpro.memory.graph.GraphQuery;
 import com.walpro.memory.graph.InMemoryGraphStore;
+import com.walpro.memory.ingest.GraphWriter;
 import com.walpro.memory.model.Artifact;
 import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Episode;
@@ -11,7 +12,6 @@ import com.walpro.memory.model.Relation;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Phase 1 demo:
@@ -27,72 +27,47 @@ public final class Phase1BootstrapDemo {
 
     public static void main(String[] args) {
         InMemoryGraphStore store = new InMemoryGraphStore();
+        GraphWriter w = new GraphWriter(store);
 
         String trace = "phase0-bootstrap-" + Instant.now().toString();
 
-        Episode ep = new Episode(
-                id("ep"),
-                Instant.now(),
-                Instant.now(),
-                trace
-        );
+        Episode ep = w.episodeNow(trace);
 
-        Artifact readme = new Artifact(
-                id("art"),
-                "DOC",
-                "README.md",
-                trace
-        );
+        Artifact readme = w.artifact(trace, "DOC", "README.md");
+        Artifact contract = w.artifact(trace, "DOC", "CONTRACT.md");
 
-        Artifact contract = new Artifact(
-                id("art"),
-                "DOC",
-                "CONTRACT.md",
-                trace
-        );
-
-        Interpretation scope = new Interpretation(
-                id("int"),
+        Interpretation scope = w.interpretation(
+                trace,
                 "OBSERVATION",
                 "Scope is intentionally constrained; the model avoids execution semantics.",
-                0.85,
-                trace
+                0.85
         );
 
-        Interpretation revision = new Interpretation(
-                id("int"),
+        Interpretation revision = w.interpretation(
+                trace,
                 "REVISION",
                 "The substrate is usable without persistence; adapters can come later if navigation pressure appears.",
-                0.70,
-                trace
+                0.70
         );
 
-        store.putEpisode(ep);
-        store.putArtifact(readme);
-        store.putArtifact(contract);
-        store.putInterpretation(scope);
-        store.putInterpretation(revision);
-
         // Relations: keep relationType as simple strings for now.
-        store.putRelation(rel("DESCRIBES", trace, ElementRef.episode(ep.id()), ElementRef.artifact(readme.id())));
-        store.putRelation(rel("DESCRIBES", trace, ElementRef.episode(ep.id()), ElementRef.artifact(contract.id())));
+        w.relation(trace, "DESCRIBES", List.of(ElementRef.episode(ep.id()), ElementRef.artifact(readme.id())));
+        w.relation(trace, "DESCRIBES", List.of(ElementRef.episode(ep.id()), ElementRef.artifact(contract.id())));
 
-        store.putRelation(rel("SUPPORTS", trace, ElementRef.interpretation(scope.id()), ElementRef.artifact(contract.id())));
-        store.putRelation(Relation.of(
-                id("rel"),
-                "SUPPORTS",
+        w.relation(trace, "SUPPORTS", List.of(ElementRef.interpretation(scope.id()), ElementRef.artifact(contract.id())));
+        w.relation(
                 trace,
+                "SUPPORTS",
                 List.of(
                         ElementRef.interpretation(scope.id()),
                         ElementRef.episode(ep.id()),
-                        ElementRef.artifact(contract.id()) // justification artifact as an explicit link
+                        ElementRef.artifact(contract.id())
                 ),
                 Map.of("strength", 0.8)
-        ));
-
+        );
 
         // Revision / disagreement without overwriting anything.
-        store.putRelation(rel("REFINES", trace, ElementRef.interpretation(revision.id()), ElementRef.interpretation(scope.id())));
+        w.relation(trace, "REFINES", List.of(ElementRef.interpretation(revision.id()), ElementRef.interpretation(scope.id())));
 
         // ---- Navigation exercises ----
         GraphQuery q = store.query();
@@ -133,18 +108,8 @@ public final class Phase1BootstrapDemo {
 
         System.out.println("neighborsOf(Interpretation scope):");
         q.neighborsOf(scopeRef).forEach(r -> System.out.println("  - " + r.kind() + ":" + r.id()));
-    }
 
-    private static Relation rel(String type, String trace, ElementRef a, ElementRef b) {
-        return Relation.of(id("rel"), type, trace, List.of(a, b));
-    }
-
-    private static Relation rel(String type, String trace, ElementRef a, ElementRef b, Map<String, Object> meta) {
-        return Relation.of(id("rel"), type, trace, List.of(a, b), meta);
-    }
-
-    private static String id(String prefix) {
-        return prefix + "-" + UUID.randomUUID();
+        w.validateAllOrThrow();
     }
 
     private static void printRelation(Relation r) {

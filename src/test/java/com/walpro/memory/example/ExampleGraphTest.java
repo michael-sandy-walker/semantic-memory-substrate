@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,6 +69,7 @@ class ExampleGraphTest {
         store.putInterpretation(i2);
 
         // Relations are n-ary nodes. We link by meaning, not by fixed edge schema.
+
         // ep1 -> diff
         store.putRelation(new Relation(
                 "rel-1",
@@ -76,7 +78,8 @@ class ExampleGraphTest {
                 List.of(
                         ElementRef.episode(ep1.id()),
                         ElementRef.artifact(diff.id())
-                )
+                ),
+                Map.of()
         ));
 
         // ep2 -> diff (shared artifact makes it NOT a tree)
@@ -87,7 +90,8 @@ class ExampleGraphTest {
                 List.of(
                         ElementRef.episode(ep2.id()),
                         ElementRef.artifact(diff.id())
-                )
+                ),
+                Map.of()
         ));
 
         // diff -> interpretations (conflicting)
@@ -99,7 +103,8 @@ class ExampleGraphTest {
                         ElementRef.artifact(diff.id()),
                         ElementRef.interpretation(i1.id()),
                         ElementRef.interpretation(i2.id())
-                )
+                ),
+                Map.of()
         ));
 
         // --- Proofs (navigation) ---

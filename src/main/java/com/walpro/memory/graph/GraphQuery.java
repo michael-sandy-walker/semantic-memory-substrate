@@ -1,5 +1,6 @@
 package com.walpro.memory.graph;
 
+import com.walpro.memory.model.Artifact;
 import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Relation;
 
@@ -31,6 +32,9 @@ public interface GraphQuery {
 
     /** Relations that mention the given element of a specific relation type */
     List<Relation> relationsOfType(ElementRef ref, String relationType);
+
+    /** Exact-match lookup: all artifacts with matching kind + reference. */
+    List<Artifact> findArtifactsByReference(String kind, String reference);
 
     /**
      * Bounded BFS path query.
