@@ -11,6 +11,7 @@ import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Episode;
 import com.walpro.memory.model.Interpretation;
 import com.walpro.memory.model.Relation;
+import com.walpro.memory.model.RelationTypes;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -62,35 +63,35 @@ public final class Phase3InterpretationWeaveDemo {
         Interpretation ref = w.interpretation(traceRef, "refinement", "Refinement: same schema, different payload; treat as comparable but not identical.", 0.80);
 
         // Episode -> Artifact linkage (just structural)
-        w.relation(traceA, "HAS_ARTIFACT", List.of(ElementRef.episode(epA.id()), ElementRef.artifact(a1.id())));
-        w.relation(traceB, "HAS_ARTIFACT", List.of(ElementRef.episode(epB.id()), ElementRef.artifact(a2.id())));
+        w.relation(traceA, RelationTypes.HAS_ARTIFACT, List.of(ElementRef.episode(epA.id()), ElementRef.artifact(a1.id())));
+        w.relation(traceB, RelationTypes.HAS_ARTIFACT, List.of(ElementRef.episode(epB.id()), ElementRef.artifact(a2.id())));
 
         // Interpretation -> Artifact (ABOUT links)
-        w.relation(traceHyp, "ABOUT",
+        w.relation(traceHyp, RelationTypes.ABOUT,
                 List.of(ElementRef.interpretation(hyp.id()), ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())),
                 Map.of("basis", "schemaToken=RESULT_JSON"));
-        w.relation(traceCtr, "ABOUT",
+        w.relation(traceCtr, RelationTypes.ABOUT,
                 List.of(ElementRef.interpretation(ctr.id()), ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())),
                 Map.of("basis", "sha differs", "lhsSha", "AAA", "rhsSha", "BBB"));
-        w.relation(traceRef, "ABOUT",
+        w.relation(traceRef, RelationTypes.ABOUT,
                 List.of(ElementRef.interpretation(ref.id()), ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())),
                 Map.of("basis", "same kind; comparable fields; payload differs"));
 
         // Debate relations: Interpretation -> Interpretation (weaving meaning across time)
-        w.relation(traceCtr, "CONTRADICTS",
+        w.relation(traceCtr, RelationTypes.CONTRADICTS,
                 List.of(ElementRef.interpretation(ctr.id()), ElementRef.interpretation(hyp.id())),
                 Map.of("scope", "identity claim", "strength", 0.8));
-        w.relation(traceRef, "REFINES",
+        w.relation(traceRef, RelationTypes.REFINES,
                 List.of(ElementRef.interpretation(ref.id()), ElementRef.interpretation(hyp.id())),
                 Map.of("scope", "downgrade identity->comparability", "strength", 0.7));
-        w.relation(traceRef, "SUPPORTS",
+        w.relation(traceRef, RelationTypes.SUPPORTS,
                 List.of(ElementRef.interpretation(ref.id()), ElementRef.interpretation(ctr.id())),
                 Map.of("scope", "not identical", "strength", 0.6));
 
         // SELECTS relation (selection episode chooses the current interpretation for a topic)
         Relation select1 = w.relation(
                 traceSel,
-                "SELECTS",
+                RelationTypes.SELECTS,
                 List.of(
                         ElementRef.episode(selectionEp.id()),
                         ElementRef.interpretation(ref.id()),
@@ -106,7 +107,7 @@ public final class Phase3InterpretationWeaveDemo {
         // second selection chooses "ctr" (counter) as current, for demonstration
         Relation select2 = w.relation(
                 traceSel2,
-                "SELECTS",
+                RelationTypes.SELECTS,
                 List.of(
                         ElementRef.episode(selectionEp2.id()),
                         ElementRef.interpretation(ctr.id()),
@@ -124,7 +125,7 @@ public final class Phase3InterpretationWeaveDemo {
         // SUPERSEDES: select2 supersedes select1 (new, old)
         w.relation(
                 traceSel2,
-                "SUPERSEDES",
+                RelationTypes.SUPERSEDES,
                 List.of(
                         ElementRef.relation(select2.id()),
                         ElementRef.relation(select1.id())
@@ -143,7 +144,7 @@ public final class Phase3InterpretationWeaveDemo {
 
         // 1) “Meaning trail” path: prefer ABOUT + interpretation-weave relations
         // (If your query supports excluding types, you can exclude SAME_AS/SIMILAR_TO, but this works even without them.)
-        PathExplanation meaningTrail = q.explainPathBetween(left, right, 6, preferTypes("ABOUT", "REFINES", "CONTRADICTS", "SUPPORTS", "HAS_ARTIFACT"));
+        PathExplanation meaningTrail = q.explainPathBetween(left, right, 6, preferTypes(RelationTypes.ABOUT, RelationTypes.REFINES, RelationTypes.CONTRADICTS, RelationTypes.SUPPORTS, RelationTypes.HAS_ARTIFACT));
 
         System.out.println("Explain path preferring meaning relations (ABOUT / REFINE / CONTRADICT / SUPPORT / HAS_ARTIFACT):");
         printExplanation(meaningTrail);
@@ -158,7 +159,7 @@ public final class Phase3InterpretationWeaveDemo {
         System.out.println("Interpretations that mention BOTH artifacts (via ABOUT):");
 
         q.relationsBetween(left, right).stream()
-                .filter(r -> "ABOUT".equals(r.relationType()))
+                .filter(r -> RelationTypes.ABOUT.equals(r.relationType()))
                 .forEach(r -> {
                     // find the interpretation linked by this ABOUT relation
                     ElementRef interpRef = r.links().stream()
@@ -193,9 +194,9 @@ public final class Phase3InterpretationWeaveDemo {
         System.out.println("Explain path preferring interpretation debate (CONTRADICTS / REFINES / SUPPORTS), excluding ABOUT / SELECTS / SUPERSEDES:");
 
         var debatePref = Comparator.<String>comparingInt(t -> switch (t) {
-            case "CONTRADICTS" -> 0;
-            case "REFINES" -> 1;
-            case "SUPPORTS" -> 2;
+            case RelationTypes.CONTRADICTS -> 0;
+            case RelationTypes.REFINES -> 1;
+            case RelationTypes.SUPPORTS -> 2;
             default -> 9;
         });
 
@@ -203,7 +204,7 @@ public final class Phase3InterpretationWeaveDemo {
                 ElementRef.interpretation(ctr.id()),
                 ElementRef.interpretation(ref.id()),
                 6,
-                Set.of("ABOUT", "SELECTS", "SUPERSEDES"),
+                Set.of(RelationTypes.ABOUT, RelationTypes.SELECTS, RelationTypes.SUPERSEDES),
                 debatePref
         );
         printExplanation(debate);
@@ -213,7 +214,7 @@ public final class Phase3InterpretationWeaveDemo {
 
         // All SELECTS relations that include BOTH artifacts
         var selectsForPair = q.relationsBetween(left, right).stream()
-                .filter(r -> "SELECTS".equals(r.relationType()))
+                .filter(r -> RelationTypes.SELECTS.equals(r.relationType()))
                 .toList();
 
         if (selectsForPair.isEmpty()) {
@@ -263,14 +264,14 @@ public final class Phase3InterpretationWeaveDemo {
         System.out.println("Selection (SELECTS) for these two artifacts (current by SUPERSEDES):");
 
         selectsForPair = q.relationsBetween(left, right).stream()
-                .filter(r -> "SELECTS".equals(r.relationType()))
+                .filter(r -> RelationTypes.SELECTS.equals(r.relationType()))
                 .filter(r -> "identity".equals(String.valueOf(r.meta().getOrDefault("topic", ""))))
                 .toList();
 
         var supersedesRels = store.query().byTrace(traceSel2).stream()
                 .filter(ref2 -> ref2.kind() == ElementKind.RELATION)
                 .map(ref2 -> store.getRelation(ref2.id()).orElse(null))
-                .filter(r -> r != null && "SUPERSEDES".equals(r.relationType()))
+                .filter(r -> r != null && RelationTypes.SUPERSEDES.equals(r.relationType()))
                 .toList();
 
         // Collect superseded SELECTS relation ids (the "old" side)
@@ -373,7 +374,7 @@ public final class Phase3InterpretationWeaveDemo {
             // Find SUPERSEDES where links[0] == cur
             Relation finalCur = cur;
             var supers = store.query().relationsOf(ElementRef.relation(cur.id())).stream()
-                    .filter(r -> "SUPERSEDES".equals(r.relationType()))
+                    .filter(r -> RelationTypes.SUPERSEDES.equals(r.relationType()))
                     .filter(r -> r.links().size() == 2)
                     .filter(r -> r.links().get(0).kind() == ElementKind.RELATION)
                     .filter(r -> r.links().get(0).id().equals(finalCur.id()))

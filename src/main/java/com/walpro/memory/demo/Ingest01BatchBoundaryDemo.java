@@ -7,6 +7,7 @@ import com.walpro.memory.model.Artifact;
 import com.walpro.memory.model.ElementKind;
 import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Episode;
+import com.walpro.memory.model.RelationTypes;
 
 import java.time.Instant;
 import java.util.List;
@@ -39,7 +40,7 @@ public final class Ingest01BatchBoundaryDemo {
             a1 = b.artifact("RUN_LOG", "runs/latest/run.log");
 
             b.relation(
-                    "HAS_ARTIFACT",
+                    RelationTypes.HAS_ARTIFACT,
                     List.of(ElementRef.episode(ep.id()), ElementRef.artifact(a1.id()))
             );
         }
@@ -50,7 +51,7 @@ public final class Ingest01BatchBoundaryDemo {
             a2 = b.artifact("RUN_LOG", "runs/latest/run.log");
 
             b.relation(
-                    "HAS_ARTIFACT",
+                    RelationTypes.HAS_ARTIFACT,
                     List.of(ElementRef.episode(ep.id()), ElementRef.artifact(a2.id()))
             );
         }
@@ -59,7 +60,7 @@ public final class Ingest01BatchBoundaryDemo {
         String traceStitch = "ingest-stitch-" + now;
         try (GraphWriter.Batch b = w.batch(traceStitch)) {
             b.relation(
-                    "SIMILAR_TO",
+                    RelationTypes.SIMILAR_TO,
                     List.of(ElementRef.artifact(a1.id()), ElementRef.artifact(a2.id())),
                     Map.of("reason", "same reference token", "reference", "runs/latest/run.log")
             );
@@ -70,7 +71,7 @@ public final class Ingest01BatchBoundaryDemo {
                 ElementRef.artifact(a1.id()),
                 ElementRef.artifact(a2.id()),
                 6,
-                preferTypes("SIMILAR_TO", "SAME_AS", "ABOUT", "HAS_ARTIFACT")
+                preferTypes(RelationTypes.SIMILAR_TO, RelationTypes.SAME_AS, RelationTypes.ABOUT, RelationTypes.HAS_ARTIFACT)
         );
         printExplanation(p);
 

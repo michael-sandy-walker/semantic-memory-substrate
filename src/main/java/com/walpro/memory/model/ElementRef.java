@@ -15,4 +15,5 @@ public record ElementRef(ElementKind kind, String id) {
     public static ElementRef artifact(String id) { return new ElementRef(ElementKind.ARTIFACT, id); }
     public static ElementRef interpretation(String id) { return new ElementRef(ElementKind.INTERPRETATION, id); }
     public static ElementRef relation(String id) { return new ElementRef(ElementKind.RELATION, id); }
+    public static ElementRef action(String id) { return new ElementRef(ElementKind.ACTION, id); }
 }

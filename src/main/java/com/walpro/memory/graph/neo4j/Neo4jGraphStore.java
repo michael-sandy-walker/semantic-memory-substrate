@@ -2,6 +2,7 @@ package com.walpro.memory.graph.neo4j;
 
 import com.walpro.memory.graph.GraphQuery;
 import com.walpro.memory.graph.GraphStore;
+import com.walpro.memory.model.Action;
 import com.walpro.memory.model.Artifact;
 import com.walpro.memory.model.Episode;
 import com.walpro.memory.model.Interpretation;
@@ -147,6 +148,37 @@ public final class Neo4jGraphStore implements GraphStore {
     }
 
     @Override
+    public void putAction(Action action) {
+        String metaJson = metaCodec.encode(action.getMeta());
+
+        try (Session s = driver.session()) {
+            s.executeWrite(tx -> {
+                tx.run(
+                        """
+                        MERGE (a:Action {id: $id})
+                        SET a.trace = $trace,
+                            a.role = $role,
+                            a.kind = $kind,
+                            a.reason = $reason,
+                            a.at = $at,
+                            a.metaJson = $metaJson
+                        """,
+                        parameters(
+                                "id", action.getId(),
+                                "trace", action.getTrace(),
+                                "role", action.getRole(),
+                                "kind", action.getKind(),
+                                "reason", action.getReason(),
+                                "at", action.getAt().toString(),
+                                "metaJson", metaJson
+                        )
+                );
+                return null;
+            });
+        }
+    }
+
+    @Override
     public Optional<Episode> getEpisode(String id) {
         try (Session s = driver.session()) {
             return s.executeRead(tx -> tx.run(
@@ -216,6 +248,28 @@ public final class Neo4jGraphStore implements GraphStore {
                             parameters("id", id)
                     ).stream().findFirst()
             ).map(rec -> Neo4jMappers.toRelation(rec, metaCodec));
+        }
+    }
+
+    @Override
+    public Optional<Action> getAction(String id) {
+        try (Session s = driver.session()) {
+            return s.executeRead(tx -> tx.run(
+                            "MATCH (a:Action {id: $id}) RETURN a",
+                            parameters("id", id)
+                    ).stream().findFirst()
+            ).map(r -> {
+                var n = r.get("a").asNode();
+                return new Action(
+                        n.get("id").asString(),
+                        n.get("role").asString(),
+                        n.get("kind").asString(),
+                        n.get("reason").asString(),
+                        java.time.Instant.parse(n.get("at").asString()),
+                        metaCodec.decode(n.get("metaJson").asString()),
+                        n.get("trace").asString()
+                );
+            });
         }
     }
 

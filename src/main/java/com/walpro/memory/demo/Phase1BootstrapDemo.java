@@ -8,6 +8,7 @@ import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Episode;
 import com.walpro.memory.model.Interpretation;
 import com.walpro.memory.model.Relation;
+import com.walpro.memory.model.RelationTypes;
 
 import java.time.Instant;
 import java.util.List;
@@ -51,13 +52,13 @@ public final class Phase1BootstrapDemo {
         );
 
         // Relations: keep relationType as simple strings for now.
-        w.relation(trace, "DESCRIBES", List.of(ElementRef.episode(ep.id()), ElementRef.artifact(readme.id())));
-        w.relation(trace, "DESCRIBES", List.of(ElementRef.episode(ep.id()), ElementRef.artifact(contract.id())));
+        w.relation(trace, RelationTypes.DESCRIBES, List.of(ElementRef.episode(ep.id()), ElementRef.artifact(readme.id())));
+        w.relation(trace, RelationTypes.DESCRIBES, List.of(ElementRef.episode(ep.id()), ElementRef.artifact(contract.id())));
 
-        w.relation(trace, "SUPPORTS", List.of(ElementRef.interpretation(scope.id()), ElementRef.artifact(contract.id())));
+        w.relation(trace, RelationTypes.SUPPORTS, List.of(ElementRef.interpretation(scope.id()), ElementRef.artifact(contract.id())));
         w.relation(
                 trace,
-                "SUPPORTS",
+                RelationTypes.SUPPORTS,
                 List.of(
                         ElementRef.interpretation(scope.id()),
                         ElementRef.episode(ep.id()),
@@ -67,7 +68,7 @@ public final class Phase1BootstrapDemo {
         );
 
         // Revision / disagreement without overwriting anything.
-        w.relation(trace, "REFINES", List.of(ElementRef.interpretation(revision.id()), ElementRef.interpretation(scope.id())));
+        w.relation(trace, RelationTypes.REFINES, List.of(ElementRef.interpretation(revision.id()), ElementRef.interpretation(scope.id())));
 
         // ---- Navigation exercises ----
         GraphQuery q = store.query();

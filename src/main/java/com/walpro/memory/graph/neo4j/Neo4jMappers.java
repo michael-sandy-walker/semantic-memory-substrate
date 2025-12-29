@@ -34,6 +34,7 @@ final class Neo4jMappers {
                 case "Artifact": return ElementKind.ARTIFACT;
                 case "Interpretation": return ElementKind.INTERPRETATION;
                 case "Relation": return ElementKind.RELATION;
+                case "Action": return ElementKind.ACTION;
                 default: // ignore
             }
         }

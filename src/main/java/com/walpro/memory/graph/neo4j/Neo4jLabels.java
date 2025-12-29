@@ -11,6 +11,7 @@ final class Neo4jLabels {
             case ARTIFACT -> "Artifact";
             case INTERPRETATION -> "Interpretation";
             case RELATION -> "Relation";
+            case ACTION -> "Action";
         };
     }
 }

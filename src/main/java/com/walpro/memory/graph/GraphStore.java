@@ -1,5 +1,6 @@
 package com.walpro.memory.graph;
 
+import com.walpro.memory.model.Action;
 import com.walpro.memory.model.Artifact;
 import com.walpro.memory.model.Episode;
 import com.walpro.memory.model.Interpretation;
@@ -14,11 +15,14 @@ public interface GraphStore {
     void putArtifact(Artifact artifact);
     void putInterpretation(Interpretation interpretation);
     void putRelation(Relation relation);
+    void putAction(Action action);
+
 
     Optional<Episode> getEpisode(String id);
     Optional<Artifact> getArtifact(String id);
     Optional<Interpretation> getInterpretation(String id);
     Optional<Relation> getRelation(String id);
+    Optional<Action> getAction(String actionId);
 
     GraphQuery query();
 

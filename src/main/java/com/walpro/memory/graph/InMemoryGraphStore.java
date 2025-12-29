@@ -12,6 +12,7 @@ public class InMemoryGraphStore implements GraphStore {
     private final Map<String, Artifact> artifacts = new ConcurrentHashMap<>();
     private final Map<String, Interpretation> interpretations = new ConcurrentHashMap<>();
     private final Map<String, Relation> relations = new ConcurrentHashMap<>();
+    private final Map<String, Action> actions = new ConcurrentHashMap<>();
 
     // indexes for navigation
     private final Map<ElementRef, Set<String>> relationIdsByRef = new ConcurrentHashMap<>();
@@ -54,6 +55,14 @@ public class InMemoryGraphStore implements GraphStore {
     }
 
     @Override
+    public void putAction(Action action) {
+        Objects.requireNonNull(action, "action");
+        actions.put(action.getId(), action);
+
+        indexTrace(ElementRef.action(action.getId()), action.getTrace());
+    }
+
+    @Override
     public Optional<Episode> getEpisode(String id) {
         return Optional.ofNullable(episodes.get(id));
     }
@@ -71,6 +80,12 @@ public class InMemoryGraphStore implements GraphStore {
     @Override
     public Optional<Relation> getRelation(String id) {
         return Optional.ofNullable(relations.get(id));
+    }
+
+    @Override
+    public Optional<Action> getAction(String actionId) {
+        if (actionId == null || actionId.isBlank()) return Optional.empty();
+        return Optional.ofNullable(actions.get(actionId));
     }
 
     @Override
@@ -268,7 +283,7 @@ public class InMemoryGraphStore implements GraphStore {
                         List<ElementRef> candidates = r.links();
 
                         // Special routing rule for ABOUT:
-                        if ("ABOUT".equals(r.relationType()) && cameFromKind != null) {
+                        if (RelationTypes.ABOUT.equals(r.relationType()) && cameFromKind != null) {
                             boolean hasInterpretation = candidates.stream().anyMatch(x -> x.kind() == ElementKind.INTERPRETATION);
 
                             if (hasInterpretation) {
@@ -285,7 +300,7 @@ public class InMemoryGraphStore implements GraphStore {
                         }
 
                         // Special routing rule for SELECTS:
-                        if ("SELECTS".equals(r.relationType()) && cameFromKind != null) {
+                        if (RelationTypes.SELECTS.equals(r.relationType()) && cameFromKind != null) {
                             boolean hasInterpretation = candidates.stream().anyMatch(x -> x.kind() == ElementKind.INTERPRETATION);
 
                             if (hasInterpretation) {

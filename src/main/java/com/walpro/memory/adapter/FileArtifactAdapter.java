@@ -6,6 +6,7 @@ import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Episode;
 import com.walpro.memory.model.Interpretation;
 import com.walpro.memory.model.Relation;
+import com.walpro.memory.model.RelationTypes;
 
 import java.time.Instant;
 import java.util.List;
@@ -49,7 +50,7 @@ public final class FileArtifactAdapter {
             Artifact art = b.artifact(req.artifactKind(), req.reference());
 
             Relation has = b.relation(
-                    "HAS_ARTIFACT",
+                    RelationTypes.HAS_ARTIFACT,
                     List.of(ElementRef.episode(ep.id()), ElementRef.artifact(art.id())),
                     req.relationMeta() == null ? Map.of() : req.relationMeta()
             );
@@ -65,7 +66,7 @@ public final class FileArtifactAdapter {
                 );
 
                 about = b.relation(
-                        "ABOUT",
+                        RelationTypes.ABOUT,
                         List.of(ElementRef.interpretation(note.id()), ElementRef.artifact(art.id()))
                 );
             }

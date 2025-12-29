@@ -4,5 +4,6 @@ public enum ElementKind {
     EPISODE,
     ARTIFACT,
     INTERPRETATION,
-    RELATION
+    RELATION,
+    ACTION
 }

@@ -8,6 +8,7 @@ import com.walpro.memory.model.Artifact;
 import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Episode;
 import com.walpro.memory.model.Interpretation;
+import com.walpro.memory.model.RelationTypes;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -53,13 +54,13 @@ public final class Phase2CrossTraceDemo {
         );
 
         // Within each trace: connect episode to its artifact (no semantics beyond linkage).
-        w.relation(trace1, "HAS_ARTIFACT", List.of(ElementRef.episode(ep1.id()), ElementRef.artifact(runLog1.id())));
-        w.relation(trace2, "HAS_ARTIFACT", List.of(ElementRef.episode(ep2.id()), ElementRef.artifact(runLog2.id())));
+        w.relation(trace1, RelationTypes.HAS_ARTIFACT, List.of(ElementRef.episode(ep1.id()), ElementRef.artifact(runLog1.id())));
+        w.relation(trace2, RelationTypes.HAS_ARTIFACT, List.of(ElementRef.episode(ep2.id()), ElementRef.artifact(runLog2.id())));
 
         // Cross-trace stitch: similarity without enforcing identity.
         w.relation(
                 stitchTrace,
-                "SIMILAR_TO",
+                RelationTypes.SIMILAR_TO,
                 List.of(ElementRef.artifact(runLog1.id()), ElementRef.artifact(runLog2.id())),
                 Map.of("strength", 0.6, "reason", "same reference token", "fingerprint", refToken)
         );
@@ -67,7 +68,7 @@ public final class Phase2CrossTraceDemo {
         // add SAME_AS (competing, “stronger”)
         w.relation(
                 stitchTrace2,
-                "SAME_AS",
+                RelationTypes.SAME_AS,
                 List.of(ElementRef.artifact(runLog1.id()), ElementRef.artifact(runLog2.id())),
                 Map.of("strength", 0.9, "fingerprint", refToken)
         );
@@ -75,14 +76,14 @@ public final class Phase2CrossTraceDemo {
         // Connect interpretation to each artifact (no semantics beyond linkage)
         w.relation(
                 bridgeTrace,
-                "ABOUT",
+                RelationTypes.ABOUT,
                 List.of(ElementRef.interpretation(bridge.id()), ElementRef.artifact(runLog1.id())),
                 Map.of("role", "lhs")
         );
 
         w.relation(
                 bridgeTrace,
-                "ABOUT",
+                RelationTypes.ABOUT,
                 List.of(ElementRef.interpretation(bridge.id()), ElementRef.artifact(runLog2.id())),
                 Map.of("role", "rhs")
         );
@@ -92,12 +93,12 @@ public final class Phase2CrossTraceDemo {
         ElementRef a = ElementRef.artifact(runLog1.id());
         ElementRef b = ElementRef.artifact(runLog2.id());
 
-        var sameFirst = q.explainPathBetween(a, b, 4, preferType("SAME_AS"));
-        var similarFirst = q.explainPathBetween(a, b, 4, preferType("SIMILAR_TO"));
+        var sameFirst = q.explainPathBetween(a, b, 4, preferType(RelationTypes.SAME_AS));
+        var similarFirst = q.explainPathBetween(a, b, 4, preferType(RelationTypes.SIMILAR_TO));
         var aboutFirst = q.explainPathBetweenExcludingTypes(
                 a, b, 6,
-                java.util.Set.of("SAME_AS", "SIMILAR_TO"),
-                preferType("ABOUT")
+                java.util.Set.of(RelationTypes.SAME_AS, RelationTypes.SIMILAR_TO),
+                preferType(RelationTypes.ABOUT)
         );
 
 

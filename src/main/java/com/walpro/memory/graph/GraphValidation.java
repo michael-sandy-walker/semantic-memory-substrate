@@ -4,6 +4,7 @@ import com.walpro.memory.model.ElementKind;
 import com.walpro.memory.model.ElementRef;
 import com.walpro.memory.model.Interpretation;
 import com.walpro.memory.model.Relation;
+import com.walpro.memory.model.RelationTypes;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -25,6 +26,7 @@ public final class GraphValidation {
                 case ARTIFACT -> store.getArtifact(ref.id()).isPresent();
                 case INTERPRETATION -> store.getInterpretation(ref.id()).isPresent();
                 case RELATION -> store.getRelation(ref.id()).isPresent();
+                case ACTION -> store.getAction(ref.id()).isPresent();
             };
             if (!exists) {
                 problems.add("Relation " + relation.id() + " links missing target: " + ref.kind() + ":" + ref.id());
@@ -51,7 +53,7 @@ public final class GraphValidation {
         }
 
         switch (type) {
-            case "ABOUT" -> {
+            case RelationTypes.ABOUT -> {
                 // ABOUT must connect at least one interpretation to at least one concrete target.
                 if (counts.getOrDefault(ElementKind.INTERPRETATION, 0) < 1) {
                     problems.add("ABOUT relation " + relation.id() + " must include at least 1 INTERPRETATION.");
@@ -62,7 +64,7 @@ public final class GraphValidation {
                     problems.add("ABOUT relation " + relation.id() + " must include at least 1 ARTIFACT or EPISODE.");
                 }
             }
-            case "SELECTS" -> {
+            case RelationTypes.SELECTS -> {
                 // SELECTS points to a single chosen interpretation from a selection context.
                 int iCount = counts.getOrDefault(ElementKind.INTERPRETATION, 0);
                 if (iCount != 1) {
@@ -97,7 +99,7 @@ public final class GraphValidation {
                     // If there are no concrete targets, this rule is not meaningful (but earlier checks should prevent that).
                     if (!requiredTargets.isEmpty()) {
                         var abouts = store.query().relationsOf(chosen).stream()
-                                .filter(r -> "ABOUT".equals(r.relationType()))
+                                .filter(r -> RelationTypes.ABOUT.equals(r.relationType()))
                                 .toList();
 
                         boolean hasBackingAbout = abouts.stream().anyMatch(about -> about.links().containsAll(requiredTargets));
@@ -130,7 +132,7 @@ public final class GraphValidation {
 //                    }
 //                }
 //            }
-            case "SUPERSEDES" -> {
+            case RelationTypes.SUPERSEDES -> {
                 int rCount = counts.getOrDefault(ElementKind.RELATION, 0);
                 if (relation.links().size() != 2 || rCount != 2) {
                     problems.add("SUPERSEDES relation " + relation.id() + " must link exactly 2 RELATION refs.");
@@ -153,7 +155,7 @@ public final class GraphValidation {
                     break;
                 }
 
-                if (!"SELECTS".equals(newer.relationType()) || !"SELECTS".equals(older.relationType())) {
+                if (!RelationTypes.SELECTS.equals(newer.relationType()) || !RelationTypes.SELECTS.equals(older.relationType())) {
                     problems.add("SUPERSEDES relation " + relation.id() + " must link SELECTS -> SELECTS.");
                     break;
                 }
