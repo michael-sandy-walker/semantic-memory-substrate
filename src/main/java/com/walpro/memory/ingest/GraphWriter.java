@@ -81,6 +81,7 @@ public final class GraphWriter {
 
     public final class Batch implements AutoCloseable {
         private final String batchId = "batch-" + UUID.randomUUID();
+        private final List<String> interpretationIds = new java.util.ArrayList<>();
 
         private final GraphWriter writer;
         private final String trace;
@@ -112,7 +113,9 @@ public final class GraphWriter {
 
         public Interpretation interpretation(String type, String summary, double confidence) {
             ensureOpen();
-            return writer.interpretation(trace, type, summary, confidence);
+            Interpretation i = writer.interpretation(trace, type, summary, confidence);
+            interpretationIds.add(i.id());
+            return i;
         }
 
         public Relation relation(String relationType, List<ElementRef> links) {
@@ -125,10 +128,18 @@ public final class GraphWriter {
             return writer.relation(trace, relationType, links, meta);
         }
 
-        /** Runs whole-graph checks once (and marks the batch as complete). */
+        /**
+         * Checks what this batch wrote (every interpretation it created is referenced by a relation)
+         * and marks the batch complete. Scoped to the batch on purpose: the whole-graph check cost
+         * one query per interpretation ever stored, and a host that keeps history paid 7-25 minutes
+         * per commit for it. {@link GraphWriter#validateAllOrThrow()} remains the whole-graph check.
+         */
         public void commit() {
             ensureOpen();
-            writer.validateAllOrThrow();
+            List<String> problems = GraphValidation.validateReferenced(writer.store, interpretationIds);
+            if (!problems.isEmpty()) {
+                throw new IllegalStateException(String.join("\n", problems));
+            }
             committed = true;
         }
 

@@ -206,6 +206,25 @@ public final class GraphValidation {
         return counts;
     }
 
+    /**
+     * The interpretation-reachability check over the given interpretations only. A batch can leave
+     * unreferenced only the interpretations it wrote itself, so checking those is the whole check
+     * for that batch -- and it costs one lookup per interpretation written rather than one per
+     * interpretation in the graph, which grew without bound once the host kept history.
+     */
+    public static List<String> validateReferenced(GraphStore store, java.util.Collection<String> interpretationIds) {
+        List<String> problems = new ArrayList<>();
+        if (interpretationIds == null || interpretationIds.isEmpty()) return problems;
+        GraphQuery q = store.query();
+        for (String id : interpretationIds) {
+            var rels = q.relationsOf(ElementRef.interpretation(id));
+            if (rels == null || rels.isEmpty()) {
+                problems.add("Interpretation " + id + " is unreferenced (no relations).");
+            }
+        }
+        return problems;
+    }
+
     public static List<String> validateAll(GraphStore store) {
         List<String> problems = new ArrayList<>();
 
